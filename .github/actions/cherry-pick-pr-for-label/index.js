@@ -9,7 +9,7 @@ const {
   createPullRequest,
   commentOnPR,
   CreationStatus,
-} = require("./lib");
+} = require("../lib");
 
 const CHERRY_PICK_LABEL = "cherry-pick";
 
@@ -26,7 +26,7 @@ async function run() {
 
     const {
       actor,
-      run_id: actionRunId,
+      runId: actionRunId,
       payload: { pull_request: pullRequest },
     } = github.context;
 
@@ -92,7 +92,6 @@ async function run() {
           body,
         });
 
-        console.log("Commenting on PR with success");
         await commentOnPR(octokit, {
           repo,
           owner,
@@ -102,7 +101,6 @@ async function run() {
       } catch (ex) {
         const errorMessage = `Failed to create cherry Pick PR due to error '${ex}'`;
         console.error(errorMessage);
-        console.error("Commenting on PR with cherry-pick error");
 
         await commentOnPR(octokit, {
           repo,

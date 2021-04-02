@@ -144,6 +144,7 @@ async function createPullRequest(
 }
 
 async function commentOnPR(octokit, { repo, owner, pullRequestNumber, body }) {
+  console.log(`Commenting on PR #${pullRequestNumber}`);
   await octokit.pulls.createReview({
     owner,
     repo,
