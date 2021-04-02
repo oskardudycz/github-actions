@@ -91,6 +91,7 @@ async function run() {
           base: targetBranch,
           body,
         });
+        throw "tesdt";
 
         await commentOnPR(octokit, {
           repo,
