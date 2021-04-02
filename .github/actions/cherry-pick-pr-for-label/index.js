@@ -1,6 +1,6 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
-const { cherryPickCommits } = require("github-cherry-pick");
+const { cherryPickCommits } = require("./cherry-pick");
 
 const {
   getLastCommit,
