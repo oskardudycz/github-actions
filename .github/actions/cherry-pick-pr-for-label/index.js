@@ -5,9 +5,10 @@ const { cherryPickCommits } = require("github-cherry-pick");
 const { createActionAuth } = require("@octokit/auth");
 
 const { Octokit } = require("@octokit/rest");
-const octokit = new Octokit({
-  authStrategy: createActionAuth,
-});
+const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
+//  new Octokit({
+//   authStrategy: createActionAuth,
+// });
 
 const CHERRY_PICK_LABEL = "cherry-pick";
 
@@ -251,7 +252,7 @@ async function run() {
         });
         throw "test error";
       } catch (ex) {
-        const errorMessage = `Failed to create cherry Pick PR due to error'${ex}'`;
+        const errorMessage = `Failed to create cherry Pick PR due to error '${ex}'`;
         console.error(errorMessage);
         console.error("Commenting on PR with cherry-pick error");
 

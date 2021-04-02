@@ -11,7 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "@actions/core": "^1.2.6",
-    "@actions/github": "^2.2.0",
+    "@actions/github": "^4.0.0",
     "@octokit/auth": "^3.0.3",
     "@octokit/rest": "^17.11.2",
     "github-cherry-pick": "^1.1.0"
