@@ -10,7 +10,9 @@ const {
   createActionAuth,
 } = require("@octokit/auth");
 const { Octokit } = require('@octokit/rest');
-const octokit = new Octokit({});
+const octokit = new Octokit({
+  authStrategy: createActionAuth,
+});
 const owner = 'oskardudycz';
 const repo = 'EventStore';
 
