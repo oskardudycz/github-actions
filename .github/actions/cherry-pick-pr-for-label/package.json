@@ -1,0 +1,18 @@
+{
+  "name": "cherry-pick-pr-for-label",
+  "version": "1.0.0",
+  "description": "Chery picks a PR based on the labelled PR to the relevant branch",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Hayley Campbell",
+  "license": "ISC",
+  "dependencies": {
+    "@actions/core": "^1.2.6",
+    "@actions/github": "^2.2.0",
+    "@octokit/rest": "^17.11.2",
+    "github-cherry-pick": "^1.1.0"
+  }
+}
