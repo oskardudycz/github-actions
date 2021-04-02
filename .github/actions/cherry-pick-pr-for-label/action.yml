@@ -1,9 +1,5 @@
-name: 'Cherry Pick PR for label'
-description: 'Opens a new PR based off a labelled one'
-inputs:
-  github-token:
-    description: 'GitHub token with read and write access on the project.'
-    required: true
+name: "Cherry Pick PR for label"
+description: "Opens a new PR based off a labelled one"
 runs:
-  using: 'node12'
-  main: 'index.js'
+  using: "node12"
+  main: "index.js"

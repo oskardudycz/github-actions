@@ -5,11 +5,12 @@ const fs = require('fs');
 // See https://git-scm.com/docs/git-cherry-pick for more details.
 const { cherryPickCommits } = require("github-cherry-pick");
 
+
+const {
+  createActionAuth,
+} = require("@octokit/auth");
 const { Octokit } = require('@octokit/rest');
-const auth = core.getInput('github-token');
-const octokit = new Octokit({
-  auth
-});
+const octokit = new Octokit({});
 const owner = 'oskardudycz';
 const repo = 'EventStore';
 
@@ -41,6 +42,7 @@ async function getLastCommit(branch) {
     if (branchInfo.status != 200) {
       throw `Failed to get branch branch details for '${branch}' : ${JSON.stringify(branchInfo)}`;
     }
+    console.log(JSON.stringify(branchInfo));
     return branchInfo.data.object.sha;
 }
 
