@@ -1,233 +1,274 @@
-const core = require('@actions/core');
-const github = require('@actions/github');
+const core = require("@actions/core");
+const github = require("@actions/github");
 
-const fs = require('fs');
-// See https://git-scm.com/docs/git-cherry-pick for more details.
 const { cherryPickCommits } = require("github-cherry-pick");
+const { createActionAuth } = require("@octokit/auth");
 
-
-const {
-  createActionAuth,
-} = require("@octokit/auth");
-const { Octokit } = require('@octokit/rest');
+const { Octokit } = require("@octokit/rest");
 const octokit = new Octokit({
   authStrategy: createActionAuth,
 });
-const owner = 'oskardudycz';
-const repo = 'EventStore';
 
-const validLabels = ['beta', 'stable'];
-const trackingLabel = 'tracking';
+const CHERRY_PICK_LABEL = "cherry-pick";
 
-async function getPullRequestOnIssue(issueBody) {
-  const index = issueBody.indexOf("#");
-  const pullNumber = issueBody.substring(index + 1);
-  console.log(`Pull request number: ${pullNumber}`);
+const CreationStatus = {
+  CREATED: "CREATED",
+  ALREADY_EXITS: "ALREADY_EXISTS",
+};
 
-  const pullRequest = await octokit.pulls.get({
+function getTargetBranchesFromLabels(pullRequest) {
+  return pullRequest.labels
+    .filter((label) => label.name.startsWith(CHERRY_PICK_LABEL))
+    .map((label) => label.name.split(":")[1])
+    .filter((label) => !!label);
+}
+
+async function getLastCommit({ repo, owner, branch }) {
+  console.log(`Getting latest commit for branch ${branch}`);
+  // Workaround for https://github.com/octokit/rest.js/issues/1506
+  const urlToGet = `GET /repos/${owner}/${repo}/git/refs/heads/${branch}`;
+  const {
+    status,
+    data: {
+      object: { sha },
+    },
+  } = await octokit.request(urlToGet, {
     repo,
     owner,
-    pull_number: pullNumber
+    branch,
   });
-  return pullRequest.data;
+
+  if (status != 200) {
+    throw `Failed to get branch branch details for '${branch}' : ${JSON.stringify(
+      branchInfo
+    )}`;
+  }
+
+  return sha;
 }
 
-async function getLastCommit(branch) {
-    // Workaround for https://github.com/octokit/rest.js/issues/1506
-    const urlToGet = `GET /repos/${owner}/${repo}/git/refs/heads/${branch}`;
-    const branchInfo = await octokit.request(urlToGet, {
-      repo,
-      owner,
-      branch
-      });
+async function createNewBranch({ repo, owner, newBranchName, targetSha }) {
+  console.log(`Creating a branch ${newBranchName} with sha ${targetSha}`);
 
-    if (branchInfo.status != 200) {
-      throw `Failed to get branch branch details for '${branch}' : ${JSON.stringify(branchInfo)}`;
-    }
-    console.log(JSON.stringify(branchInfo));
-    return branchInfo.data.object.sha;
-}
+  const branchRef = `refs/heads/${newBranchName}`;
 
-async function createNewBranch(branchName, targetSha) {
-  const branchRef = `refs/heads/${branchName}`;
-
-  try{
+  try {
     const response = await octokit.git.createRef({
       owner,
       repo,
       ref: branchRef,
-      sha: targetSha
+      sha: targetSha,
     });
+
     if (response.status != 201) {
       console.log("Error Response status" + response.status);
     }
 
-    return { status: "CREATED", branchRef };
-  } catch(err){
-    if(err.toString() === "HttpError: Reference already exists"){
-      return { status: "ALREADY_EXISTS", branchRef };
+    return { status: CreationStatus.CREATED, branchRef };
+  } catch (err) {
+    if (err.toString() === "HttpError: Reference already exists") {
+      return { status: CreationStatus.ALREADY_EXITS, branchRef };
     }
     throw err;
   }
 }
 
-async function getCommitShasInPr(pullNumber) {
-    const pullRequestCommits = await octokit.pulls.listCommits({
-      owner,
-      repo,
-      pull_number: pullNumber,
-    });
-    if (pullRequestCommits.status != 200) {
-      throw `Failed to get commits on PR ${pullNumber}: ${JSON.stringify(response)}`;
-    }
-
-    return pullRequestCommits.data.map(c => c.sha);
-}
-
-async function cherryPick(commitShas, branchName) {
-    const newHeadSha = await cherryPickCommits({
-      commits: commitShas,
-      head: branchName,
-      octokit,
-      owner,
-      repo,
-    });
-    console.log(`New head after cherry pick: ${newHeadSha}`);
-    return newHeadSha;
-}
-
-async function openPullRequestExists(newBranch, targetBranchName) {
-  const response = await octokit.pulls.list({
+async function getCommitShasInPr({ repo, owner, pullRequestNumber }) {
+  const pullRequestCommits = await octokit.pulls.listCommits({
     owner,
     repo,
-    state: "open",
-    head: newBranch,
-    base: targetBranchName
+    pull_number: pullRequestNumber,
   });
-  
-  return response.data.length > 0;
+  if (pullRequestCommits.status != 200) {
+    throw `Failed to get commits on PR ${pullRequestNumber}: ${JSON.stringify(
+      response
+    )}`;
+  }
+
+  return pullRequestCommits.data.map((c) => c.sha);
 }
 
-async function createPullRequest(title, head, base, body) {
-    const result = await octokit.pulls.create({
-      owner,
+async function cherryPick({ repo, owner, commits, head }) {
+  console.log(`Cherry picking commits '${commits}' on '${head}'`);
+
+  const newHeadSha = await cherryPickCommits({
+    commits,
+    head,
+    octokit,
+    owner,
+    repo,
+  });
+
+  console.log(`New head after cherry pick: ${newHeadSha}`);
+  return newHeadSha;
+}
+
+async function getPullRequest({ repo, owner, head, base, state }) {
+  const { data } = await octokit.pulls.list({
+    owner,
+    repo,
+    state: state || "open",
+    head,
+    base,
+  });
+
+  return data[0];
+}
+
+async function createPullRequest({
+  repo,
+  owner,
+  title,
+  head,
+  base,
+  body,
+  checkIfAlreadyExists,
+}) {
+  console.log(`Opening a PR against ${base}, on ${head} and title '${title}'`);
+
+  if (checkIfAlreadyExists === true || checkIfAlreadyExists === undefined) {
+    const existingPullRequest = await getPullRequest({
       repo,
-      title,
-      body,
+      owner,
       head,
-      base
+      base,
     });
-    console.log(`Pull request was created ${JSON.stringify(result)}`);
-}
 
-async function commentOnIssueForPr(issueNumber, body) {
-  await octokit.issues.createComment({
+    if (!!existingPullRequest) {
+      console.log("Pull request is already opened");
+      return {
+        satus: CreationStatus.ALREADY_EXITS,
+        url: existingPullRequest.url,
+      };
+    }
+  }
+
+  const {
+    data: { url },
+  } = await octokit.pulls.create({
     owner,
     repo,
-    issue_number: issueNumber,
-    body
+    title,
+    body,
+    head,
+    base,
   });
+
+  console.log(`Pull request ${url} has been opened`);
+
+  return {
+    satus: CreationStatus.CREATED,
+    url: existingPullRequest.url,
+  };
 }
 
-const CHERRY_PICK_LABEL = "cherry-pick";
+async function commentOnPR({ repo, owner, pullRequestNumber, body }) {
+  await octokit.pulls.createReview({
+    owner,
+    repo,
+    event: "COMMENT",
+    pull_number: pullRequestNumber,
+    body,
+  });
+}
 
 async function run() {
   try {
-    const payload = github.context.payload;
+    const {
+      actor,
+      run_id: actionRunId,
+      payload: { pull_request: pullRequest },
+    } = github.context;
 
-    // // const payloadFile = fs.readFileSync( 'C:\\Scratch\\github_issue_context.json');
-    // // console.log(payloadFile.toString());
-    // // const payload = JSON.parse(payloadFile.toString()).event;
+    const {
+      base: {
+        repo: {
+          name: repo,
+          owner: { login: owner },
+        },
+      },
+    } = pullRequest;
 
-    const pullRequest = payload.pull_request;
+    const targetBranches = getTargetBranchesFromLabels(pullRequest);
 
-    const targetBranches = pullRequest.labels
-      .filter(label => label.name.startsWith(CHERRY_PICK_LABEL))
-      .map(label => label.name.split(":")[1])
-      .filter(label => !!label);
-    
+    let anyCherryPickFailed = false;
+
     for (const targetBranch of targetBranches) {
-      try { 
-        console.log(`Getting latest commit for branch ${targetBranch}`);
-        const targetSha = await getLastCommit(targetBranch);
+      try {
+        const targetSha = await getLastCommit({
+          repo,
+          owner,
+          branch: targetBranch,
+        });
 
-        const newBranchName = `${pullRequest.number}-${pullRequest.head.ref}-${targetBranch}`;
-        console.log(`Creating a branch ${newBranchName} with sha ${targetSha}`);
-        const newBranch = await createNewBranch(newBranchName, targetSha);
-    
-        if(newBranch.status === "CREATED") {
-          console.log(`Getting commits for PR ${pullRequest.number}`)
-          const commitShas = await getCommitShasInPr(pullRequest.number);
-  
-          console.log(`Cherry picking commits '${commitShas}' on '${newBranchName}'`);
-          await cherryPick(commitShas, newBranchName);
+        const newBranchName = `cherry-pick/${pullRequest.number}/${pullRequest.head.ref}-${targetBranch}`;
+
+        const {
+          status: newBranchStatus,
+          branchRef: newBranch,
+        } = await createNewBranch({
+          repo,
+          owner,
+          newBranchName,
+          targetSha,
+        });
+
+        if (newBranchStatus === CreationStatus.ALREADY_EXITS) {
+          console.log(`Branch ${newBranchName} already exists`);
         } else {
-          console.log(`Branch ${newBranchName} is already created`)
+          const commits = await getCommitShasInPr({
+            repo,
+            owner,
+            pullRequestNumber: pullRequest.number,
+          });
+
+          await cherryPick({
+            repo,
+            owner,
+            commits,
+            head: newBranch,
+          });
         }
 
         const newTitle = `[${targetBranch}] ${pullRequest.title}`;
+        const body = `Cherry picked from https://${owner}/${repo}/pull/${pullRequest.number}`;
 
-        console.log(`Opening a PR against ${targetBranch}, on ${newBranch.branchRef} and title '${newTitle}'`);
+        const { url: newPullRequestUrl } = await createPullRequest({
+          repo,
+          owner,
+          title: newTitle,
+          head: newBranch,
+          base: targetBranch,
+          body,
+        });
 
-        const pullRequestAlreadyExists = await openPullRequestExists(newBranch, targetBranch);
-        if(pullRequestAlreadyExists) {
-          console.log('Pull request is already opened');
-        } else {
-          const prBody = `Cherry picked from https://${payload.repository.owner.name}/${payload.repository.name}/pull/${pullRequest.number}`;
-          await createPullRequest(newTitle, newBranch.branchRef, targetBranch, prBody);
-          console.log('Pull request has been opened');
-        }
+        console.log("Commenting on PR with success");
+        await commentOnPR({
+          repo,
+          owner,
+          pullRequestNumber: pullRequest.number,
+          body: `@${actor} 👉 Created pull request targeting ${targetBranch}: ${newPullRequestUrl}`,
+        });
+        throw "test error";
       } catch (ex) {
-        console.log(`Failed to cherry-pick commits due to error '${ex}'`);
-        console.log('Updating tracking issue with cherry-pick error');
+        const errorMessage = `Failed to create cherry Pick PR due to error'${ex}'`;
+        console.error(errorMessage);
+        console.error("Commenting on PR with cherry-pick error");
+
+        commentOnPR({
+          repo,
+          owner,
+          pullRequestNumber: pullRequest.number,
+          body: `🚨 @${actor} ${errorMessage}. Check https://github.com/oskardudycz/EventStore/actions/runs/${actionRunId}`,
+        });
+        anyCherryPickFailed = true;
       }
     }
-    // if (!validLabels.includes(label)) {
-    //   throw `Invalid label applied: '${label}'`;
-    // }
-    // if (!issue.labels.map(x => x.name).includes(trackingLabel)) {
-    //   throw `Issue does not have a tracking label`;
-    // }
-
-    // const pullRequest= await getPullRequestOnIssue(issue.body);
-
-    // const targetBranch = label;
-    // console.log(`The target branch is ${targetBranch}`);
-
-    // console.log(`Getting latest commit for branch ${targetBranch}`);
-    // const targetSha = await getLastCommit(targetBranch);
-
-    // const newBranchName = `${pullRequest.head.ref}-${targetBranch}`;
-    // console.log(`Creating a branch ${newBranchName} with sha ${targetSha}`);
-    // const newBranchRef = await createNewBranch(newBranchName, targetSha);
-
-    // console.log(`Getting commits for PR ${pullRequest.number}`)
-    // const commitShas = await getCommitShasInPr(pullRequest.number);
-
-    // try {
-
-    //   console.log(`Cherry picking commits '${commitShas}' on '${newBranchName}'`);
-    //   const newHeadSha = await cherryPick(commitShas, newBranchName);
-
-    //   const newTitle = `[${targetBranch}] ${pullRequest.title}`;
-
-    //   console.log(`Opening a PR against ${targetBranch}, with head ${newHeadSha} on ${newBranchRef} and title '${newTitle}'`);
-    //   const prBody = `Tracked by ${payload.owner.name}/${payload.repository.name}#${issue.number}`;
-    //   await createPullRequest(newTitle, newBranchRef, targetBranch, prBody);
-    //   console.log('Pull request has been opened');
-
-    // } catch (ex) {
-
-    //   console.log(`Failed to cherry-pick commits due to error '${ex}'`);
-    //   console.log('Updating tracking issue with cherry-pick error');
-    //   var newBody = `PR Promotion to ${label} failed due to '${ex}'.\nCommits to be cherry-picked:\n`;
-    //   for (var i = 0; i < commitShas.length; i++) {
-    //     newBody += `${commitShas[i]}\n`;
-    //   }
-    //   await commentOnIssueForPr(issue.number, newBody);
-
-    // }
-
+    if (anyCherryPickFailed) {
+      core.setFailed(
+        "Failed to create one of the cherry Pick PRs. Check the details above."
+      );
+    }
   } catch (error) {
     core.setFailed(error.message);
   }
