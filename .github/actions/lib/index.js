@@ -1,3 +1,5 @@
+const { cherryPickCommits } = require("./cherry-pick");
+
 exports.getLastCommit = async function (octokit, { repo, owner, branch }) {
   console.log(`Getting latest commit for branch ${branch}`);
   // Workaround for https://github.com/octokit/rest.js/issues/1506
@@ -69,11 +71,7 @@ exports.getCommitShasInPr = async function (
   return pullRequestCommits.data.map((c) => c.sha);
 };
 
-exports.cherryPick = async function (
-  octokit,
-  cherryPickCommits,
-  { repo, owner, commits, head }
-) {
+exports.cherryPick = async function (octokit, { repo, owner, commits, head }) {
   console.log(`Cherry picking commits '${commits}' on '${head}'`);
 
   const newHeadSha = await cherryPickCommits({

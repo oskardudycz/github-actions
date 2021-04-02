@@ -1,6 +1,5 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
-const { cherryPickCommits } = require("./cherry-pick");
 
 const {
   getLastCommit,
@@ -9,7 +8,7 @@ const {
   cherryPick,
   createPullRequest,
   commentOnPR,
-} = require("utils");
+} = require("../lib");
 
 const CHERRY_PICK_LABEL = "cherry-pick";
 
@@ -77,7 +76,7 @@ async function run() {
             pullRequestNumber: pullRequest.number,
           });
 
-          await cherryPick(octokit, cherryPickCommits, {
+          await cherryPick(octokit, {
             repo,
             owner,
             commits,
