@@ -8,7 +8,7 @@ const {
   cherryPick,
   createPullRequest,
   commentOnPR,
-} = require("../lib");
+} = require("./lib");
 
 const CHERRY_PICK_LABEL = "cherry-pick";
 
