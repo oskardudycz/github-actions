@@ -8,14 +8,10 @@ const {
   cherryPick,
   createPullRequest,
   commentOnPR,
+  CreationStatus,
 } = require("./lib");
 
 const CHERRY_PICK_LABEL = "cherry-pick";
-
-const CreationStatus = {
-  CREATED: "CREATED",
-  ALREADY_EXITS: "ALREADY_EXISTS",
-};
 
 function getTargetBranchesFromLabels(pullRequest) {
   return pullRequest.labels
@@ -103,13 +99,12 @@ async function run() {
           pullRequestNumber: pullRequest.number,
           body: `@${actor} 👉 Created pull request targeting ${targetBranch}: ${newPullRequestUrl}`,
         });
-        throw "test error";
       } catch (ex) {
         const errorMessage = `Failed to create cherry Pick PR due to error '${ex}'`;
         console.error(errorMessage);
         console.error("Commenting on PR with cherry-pick error");
 
-        commentOnPR(octokit, {
+        await commentOnPR(octokit, {
           repo,
           owner,
           pullRequestNumber: pullRequest.number,

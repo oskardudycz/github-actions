@@ -1,6 +1,11 @@
 const { cherryPickCommits } = require("./cherry-pick");
 
-exports.getLastCommit = async function (octokit, { repo, owner, branch }) {
+const CreationStatus = {
+  CREATED: "CREATED",
+  ALREADY_EXITS: "ALREADY_EXISTS",
+};
+
+async function getLastCommit(octokit, { repo, owner, branch }) {
   console.log(`Getting latest commit for branch ${branch}`);
   // Workaround for https://github.com/octokit/rest.js/issues/1506
   const urlToGet = `GET /repos/${owner}/${repo}/git/refs/heads/${branch}`;
@@ -22,9 +27,9 @@ exports.getLastCommit = async function (octokit, { repo, owner, branch }) {
   }
 
   return sha;
-};
+}
 
-exports.createNewBranch = async function (
+async function createNewBranch(
   octokit,
   { repo, owner, newBranchName, targetSha }
 ) {
@@ -51,12 +56,9 @@ exports.createNewBranch = async function (
     }
     throw err;
   }
-};
+}
 
-exports.getCommitShasInPr = async function (
-  octokit,
-  { repo, owner, pullRequestNumber }
-) {
+async function getCommitShasInPr(octokit, { repo, owner, pullRequestNumber }) {
   const pullRequestCommits = await octokit.pulls.listCommits({
     owner,
     repo,
@@ -69,9 +71,9 @@ exports.getCommitShasInPr = async function (
   }
 
   return pullRequestCommits.data.map((c) => c.sha);
-};
+}
 
-exports.cherryPick = async function (octokit, { repo, owner, commits, head }) {
+async function cherryPick(octokit, { repo, owner, commits, head }) {
   console.log(`Cherry picking commits '${commits}' on '${head}'`);
 
   const newHeadSha = await cherryPickCommits({
@@ -84,12 +86,10 @@ exports.cherryPick = async function (octokit, { repo, owner, commits, head }) {
 
   console.log(`New head after cherry pick: ${newHeadSha}`);
   return newHeadSha;
-};
+}
 
-exports.getPullRequest = async function (
-  octokit,
-  { repo, owner, head, base, state }
-) {
+async function getPullRequest(octokit, { repo, owner, head, base, state }) {
+  console.log(`Checking if PR exists ${base}, on ${head} and`);
   const { data } = await octokit.pulls.list({
     owner,
     repo,
@@ -99,21 +99,16 @@ exports.getPullRequest = async function (
   });
 
   return data[0];
-};
+}
 
-exports.createPullRequest = async function ({
-  repo,
-  owner,
-  title,
-  head,
-  base,
-  body,
-  checkIfAlreadyExists,
-}) {
+async function createPullRequest(
+  octokit,
+  { repo, owner, title, head, base, body, checkIfAlreadyExists }
+) {
   console.log(`Opening a PR against ${base}, on ${head} and title '${title}'`);
 
   if (checkIfAlreadyExists === true || checkIfAlreadyExists === undefined) {
-    const existingPullRequest = await getPullRequest({
+    const existingPullRequest = await getPullRequest(octokit, {
       repo,
       owner,
       head,
@@ -146,14 +141,9 @@ exports.createPullRequest = async function ({
     satus: CreationStatus.CREATED,
     url: existingPullRequest.url,
   };
-};
+}
 
-exports.commentOnPR = async function ({
-  repo,
-  owner,
-  pullRequestNumber,
-  body,
-}) {
+async function commentOnPR(octokit, { repo, owner, pullRequestNumber, body }) {
   await octokit.pulls.createReview({
     owner,
     repo,
@@ -161,4 +151,14 @@ exports.commentOnPR = async function ({
     pull_number: pullRequestNumber,
     body,
   });
+}
+
+module.exports = {
+  getLastCommit,
+  createNewBranch,
+  getCommitShasInPr,
+  cherryPick,
+  createPullRequest,
+  commentOnPR,
+  CreationStatus,
 };
