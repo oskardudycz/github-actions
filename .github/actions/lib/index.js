@@ -5,10 +5,10 @@ const CreationStatus = {
   ALREADY_EXITS: "ALREADY_EXISTS",
 };
 
-async function getLastCommitInBranch(octokit, { repo, owner, branch }) {
-  console.log(`Getting latest commit for branch ${branch}`);
+async function getLastCommitInBranch(octokit, { repo, owner, branchName }) {
+  console.log(`Getting latest commit for branch '${branchName}'`);
   // Workaround for https://github.com/octokit/rest.js/issues/1506
-  const urlToGet = `GET /repos/${owner}/${repo}/git/refs/heads/${branch}`;
+  const urlToGet = `GET /repos/${owner}/${repo}/git/refs/heads/${branchName}`;
   const {
     status,
     data: {
@@ -17,11 +17,11 @@ async function getLastCommitInBranch(octokit, { repo, owner, branch }) {
   } = await octokit.request(urlToGet, {
     repo,
     owner,
-    branch,
+    branch: branchName,
   });
 
   if (status != 200) {
-    throw `Failed to get branch branch details for '${branch}' : ${JSON.stringify(
+    throw `Failed to get branch branch details for '${branchName}' : ${JSON.stringify(
       branchInfo
     )}`;
   }
@@ -31,11 +31,11 @@ async function getLastCommitInBranch(octokit, { repo, owner, branch }) {
 
 async function createNewBranch(
   octokit,
-  { repo, owner, newBranchName, targetSha }
+  { repo, owner, branchName, targetSha }
 ) {
-  console.log(`Creating a branch ${newBranchName} with sha ${targetSha}`);
+  console.log(`Creating a branch '${branchName}' with sha ${targetSha}`);
 
-  const branchRef = `refs/heads/${newBranchName}`;
+  const branchRef = `refs/heads/${branchName}`;
 
   try {
     const response = await octokit.git.createRef({
@@ -52,6 +52,8 @@ async function createNewBranch(
     return { status: CreationStatus.CREATED, branchRef };
   } catch (err) {
     if (err.toString() === "HttpError: Reference already exists") {
+      console.warn(`Branch '${branchName}' already exists`);
+
       return { status: CreationStatus.ALREADY_EXITS, branchRef };
     }
     throw err;
@@ -76,12 +78,12 @@ async function getCommitsInPullRequest(
   return pullRequestCommits.data.map((c) => c.sha);
 }
 
-async function cherryPick(octokit, { repo, owner, commits, head }) {
-  console.log(`Cherry picking commits '${commits}' on '${head}'`);
+async function cherryPick(octokit, { repo, owner, commits, branchName }) {
+  console.log(`Cherry picking commits '${commits}' on '${branchName}'`);
 
   const newHeadSha = await cherryPickCommits({
     commits,
-    head,
+    head: branchName,
     octokit,
     owner,
     repo,
@@ -91,13 +93,16 @@ async function cherryPick(octokit, { repo, owner, commits, head }) {
   return newHeadSha;
 }
 
-async function getPullRequest(octokit, { repo, owner, head, base, state }) {
-  console.log(`Checking if PR exists ${base}, on ${head} and`);
+async function getPullRequest(
+  octokit,
+  { repo, owner, branchName, base, state }
+) {
+  console.log(`Checking if PR exists against '${base}', on '${branchName}'`);
   const { data } = await octokit.pulls.list({
     owner,
     repo,
     state: state || "open",
-    head,
+    head: branchName,
     base,
   });
 
@@ -106,15 +111,17 @@ async function getPullRequest(octokit, { repo, owner, head, base, state }) {
 
 async function createPullRequest(
   octokit,
-  { repo, owner, title, head, base, body, checkIfAlreadyExists }
+  { repo, owner, title, branchName, base, body, checkIfAlreadyExists }
 ) {
-  console.log(`Opening a PR against ${base}, on ${head} and title '${title}'`);
+  console.log(
+    `Opening a PR against '${base}', on '${branchName}' and title '${title}'`
+  );
 
   if (checkIfAlreadyExists === true || checkIfAlreadyExists === undefined) {
     const existingPullRequest = await getPullRequest(octokit, {
       repo,
       owner,
-      head,
+      branchName,
       base,
     });
 
@@ -122,19 +129,19 @@ async function createPullRequest(
       console.log("Pull request is already opened");
       return {
         status: CreationStatus.ALREADY_EXITS,
-        url: existingPullRequest.url,
+        url: existingPullRequest.html_url,
       };
     }
   }
 
   const {
-    data: { url },
+    data: { html_url: url },
   } = await octokit.pulls.create({
     owner,
     repo,
     title,
     body,
-    head,
+    head: branchName,
     base,
   });
 
@@ -142,7 +149,7 @@ async function createPullRequest(
 
   return {
     status: CreationStatus.CREATED,
-    url: existingPullRequest.url,
+    url,
   };
 }
 

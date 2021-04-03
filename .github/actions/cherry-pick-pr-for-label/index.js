@@ -1,5 +1,6 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
+const util = require("util");
 
 const {
   getLastCommitInBranch,
@@ -28,37 +29,30 @@ async function createPullRequestWithCherryPick(
     const targetSha = await getLastCommitInBranch(octokit, {
       repo,
       owner,
-      branch: targetBranch,
+      branchName: targetBranch,
     });
 
     const newBranchName = `cherry-pick/${pullRequest.number}/${pullRequest.head.ref}-${targetBranch}`;
 
-    const {
-      status: newBranchStatus,
-      branchRef: newBranch,
-    } = await createNewBranch(octokit, {
+    await createNewBranch(octokit, {
       repo,
       owner,
-      newBranchName,
+      branchName: newBranchName,
       targetSha,
     });
 
-    if (newBranchStatus === CreationStatus.ALREADY_EXITS) {
-      console.log(`Branch ${newBranchName} already exists`);
-    } else {
-      const commits = await getCommitsInPullRequest(octokit, {
-        repo,
-        owner,
-        pullRequestNumber: pullRequest.number,
-      });
+    const commits = await getCommitsInPullRequest(octokit, {
+      repo,
+      owner,
+      pullRequestNumber: pullRequest.number,
+    });
 
-      await cherryPick(octokit, {
-        repo,
-        owner,
-        commits,
-        head: newBranch,
-      });
-    }
+    await cherryPick(octokit, {
+      repo,
+      owner,
+      commits,
+      branchName: newBranchName,
+    });
 
     const newTitle = `[${targetBranch}] ${pullRequest.title}`;
     const body = `Cherry picked from https://${owner}/${repo}/pull/${pullRequest.number}`;
@@ -67,7 +61,7 @@ async function createPullRequestWithCherryPick(
       repo,
       owner,
       title: newTitle,
-      head: newBranch,
+      branchName: newBranchName,
       base: targetBranch,
       body,
     });
@@ -81,14 +75,16 @@ async function createPullRequestWithCherryPick(
 
     return true;
   } catch (ex) {
-    const errorMessage = `Failed to create cherry Pick PR due to error '${ex}'`;
+    const errorMessage = `Failed to create cherry Pick PR due to error:\n \`\`\`\n${util.inspect(
+      ex
+    )}\n\`\`\``;
     console.error(errorMessage);
 
     await commentOnPR(octokit, {
       repo,
       owner,
       pullRequestNumber: pullRequest.number,
-      body: `🚨 @${actor} ${errorMessage}. Check https://github.com/oskardudycz/EventStore/actions/runs/${actionRunId}`,
+      body: `🚨 @${actor} ${errorMessage}\n\n🚨👉 Check https://github.com/${owner}/${repo}/actions/runs/${actionRunId}`,
     });
     return false;
   }

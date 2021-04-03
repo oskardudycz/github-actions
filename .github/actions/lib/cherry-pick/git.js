@@ -29,7 +29,7 @@ var __awaiter =
     });
   };
 Object.defineProperty(exports, "__esModule", { value: true });
-const generateUuid = require("uuid");
+const { v4: generateUuid } = require("uuid");
 const generateUniqueRef = (ref) => `${ref}-${generateUuid()}`;
 exports.generateUniqueRef = generateUniqueRef;
 const getHeadRef = (ref) => `heads/${ref}`;
