@@ -5,7 +5,7 @@ const CreationStatus = {
   ALREADY_EXITS: "ALREADY_EXISTS",
 };
 
-async function getLastCommit(octokit, { repo, owner, branch }) {
+async function getLastCommitInBranch(octokit, { repo, owner, branch }) {
   console.log(`Getting latest commit for branch ${branch}`);
   // Workaround for https://github.com/octokit/rest.js/issues/1506
   const urlToGet = `GET /repos/${owner}/${repo}/git/refs/heads/${branch}`;
@@ -58,7 +58,10 @@ async function createNewBranch(
   }
 }
 
-async function getCommitShasInPr(octokit, { repo, owner, pullRequestNumber }) {
+async function getCommitsInPullRequest(
+  octokit,
+  { repo, owner, pullRequestNumber }
+) {
   const pullRequestCommits = await octokit.pulls.listCommits({
     owner,
     repo,
@@ -118,7 +121,7 @@ async function createPullRequest(
     if (!!existingPullRequest) {
       console.log("Pull request is already opened");
       return {
-        satus: CreationStatus.ALREADY_EXITS,
+        status: CreationStatus.ALREADY_EXITS,
         url: existingPullRequest.url,
       };
     }
@@ -138,7 +141,7 @@ async function createPullRequest(
   console.log(`Pull request ${url} has been opened`);
 
   return {
-    satus: CreationStatus.CREATED,
+    status: CreationStatus.CREATED,
     url: existingPullRequest.url,
   };
 }
@@ -155,9 +158,9 @@ async function commentOnPR(octokit, { repo, owner, pullRequestNumber, body }) {
 }
 
 module.exports = {
-  getLastCommit,
+  getLastCommitInBranch,
   createNewBranch,
-  getCommitShasInPr,
+  getCommitsInPullRequest,
   cherryPick,
   createPullRequest,
   commentOnPR,
