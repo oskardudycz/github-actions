@@ -106,6 +106,8 @@ async function getPullRequest(
     base,
   });
 
+  console.log(JSON.stringify(data));
+
   return data[0];
 }
 

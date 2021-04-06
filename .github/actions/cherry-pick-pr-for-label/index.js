@@ -55,7 +55,7 @@ async function createPullRequestWithCherryPick(
     });
 
     const newTitle = `[${targetBranch}] ${pullRequest.title}`;
-    const body = `Cherry picked from https://${owner}/${repo}/pull/${pullRequest.number}`;
+    const body = `Cherry picked from https://github.com/${owner}/${repo}/pull/${pullRequest.number}`;
 
     const { url: newPullRequestUrl } = await createPullRequest(octokit, {
       repo,
