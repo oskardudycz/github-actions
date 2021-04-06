@@ -23,7 +23,7 @@ function getTargetBranchesFromLabels(pullRequest) {
 
 async function createPullRequestWithCherryPick(
   octokit,
-  { repo, owner, targetBranch, pullRequest, actor, actionRunId }
+  { repo, owner, sourceOwner, targetBranch, pullRequest, actor, actionRunId }
 ) {
   try {
     const targetSha = await getLastCommitInBranch(octokit, {
@@ -55,11 +55,12 @@ async function createPullRequestWithCherryPick(
     });
 
     const newTitle = `[${targetBranch}] ${pullRequest.title}`;
-    const body = `Cherry picked from https://github.com/${owner}/${repo}/pull/${pullRequest.number}`;
+    const body = `Cherry picked from https://github.com/${sourceOwner}/${repo}/pull/${pullRequest.number}`;
 
     const { url: newPullRequestUrl } = await createPullRequest(octokit, {
       repo,
       owner,
+      sourceOwner,
       title: newTitle,
       branchName: newBranchName,
       base: targetBranch,
@@ -107,6 +108,11 @@ async function run() {
           owner: { login: owner },
         },
       },
+      head: {
+        repo: {
+          owner: { login: sourceOwner },
+        },
+      },
     } = pullRequest;
 
     const targetBranches = getTargetBranchesFromLabels(pullRequest);
@@ -117,6 +123,7 @@ async function run() {
       const isCreated = await createPullRequestWithCherryPick(octokit, {
         repo,
         owner,
+        sourceOwner,
         targetBranch,
         pullRequest,
         actor,

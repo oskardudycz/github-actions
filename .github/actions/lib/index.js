@@ -95,25 +95,38 @@ async function cherryPick(octokit, { repo, owner, commits, branchName }) {
 
 async function getPullRequest(
   octokit,
-  { repo, owner, branchName, base, state }
+  { repo, owner, sourceOwner, branchName, base, state }
 ) {
-  console.log(`Checking if PR exists against '${base}', on '${branchName}'`);
+  const filterState = state || "open";
+  const head = `${sourceOwner || owner}:${branchName}`;
+
+  console.log(
+    `Checking if PR '${filterState}' exists against '${base}', on '${head}'`
+  );
+
   const { data } = await octokit.pulls.list({
     owner,
     repo,
-    state: state || "open",
-    //head: branchName,
+    state: filterState,
+    head,
     base,
   });
-
-  console.log(JSON.stringify(data));
 
   return data[0];
 }
 
 async function createPullRequest(
   octokit,
-  { repo, owner, title, branchName, base, body, checkIfAlreadyExists }
+  {
+    repo,
+    owner,
+    sourceOwner,
+    title,
+    branchName,
+    base,
+    body,
+    checkIfAlreadyExists,
+  }
 ) {
   console.log(
     `Opening a PR against '${base}', on '${branchName}' and title '${title}'`
@@ -123,6 +136,7 @@ async function createPullRequest(
     const existingPullRequest = await getPullRequest(octokit, {
       repo,
       owner,
+      sourceOwner,
       branchName,
       base,
     });
