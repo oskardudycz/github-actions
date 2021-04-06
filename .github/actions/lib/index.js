@@ -78,7 +78,10 @@ async function getCommitsInPullRequest(
   return pullRequestCommits.data.map((c) => c.sha);
 }
 
-async function cherryPick(octokit, { repo, owner, commits, branchName }) {
+async function cherryPick(
+  octokit,
+  { repo, owner, sourceOwner, commits, branchName }
+) {
   console.log(`Cherry picking commits '${commits}' on '${branchName}'`);
 
   const newHeadSha = await cherryPickCommits({
@@ -86,6 +89,7 @@ async function cherryPick(octokit, { repo, owner, commits, branchName }) {
     head: branchName,
     octokit,
     owner,
+    sourceOwner,
     repo,
   });
 

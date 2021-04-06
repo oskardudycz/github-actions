@@ -9,7 +9,6 @@ const {
   cherryPick,
   createPullRequest,
   commentOnPR,
-  CreationStatus,
 } = require("../lib");
 
 const CHERRY_PICK_LABEL = "cherry-pick";
@@ -50,6 +49,7 @@ async function createPullRequestWithCherryPick(
     await cherryPick(octokit, {
       repo,
       owner,
+      sourceOwner,
       commits,
       branchName: newBranchName,
     });
@@ -116,6 +116,13 @@ async function run() {
     } = pullRequest;
 
     const targetBranches = getTargetBranchesFromLabels(pullRequest);
+
+    if (targetBranches.length === 0) {
+      console.log(
+        `Skipping: No cherry pick labels (starting with '${CHERRY_PICK_LABEL}:').`
+      );
+      return;
+    }
 
     let anyCherryPickFailed = false;
 

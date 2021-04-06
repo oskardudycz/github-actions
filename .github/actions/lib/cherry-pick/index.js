@@ -131,13 +131,14 @@ const cherryPickCommit = ({
   head: { ref, sha, tree },
   octokit,
   owner,
+  sourceOwner,
   repo,
 }) =>
   __awaiter(this, void 0, void 0, function* () {
     const { author, committer, message, parent } = yield retrieveCommitDetails({
       commit,
       octokit,
-      owner,
+      owner: sourceOwner,
       repo,
     });
     debug("creating sibling commit");
@@ -189,6 +190,7 @@ const cherryPickCommitsOnRef = ({
   initialHeadSha,
   octokit,
   owner,
+  sourceOwner,
   ref,
   repo,
 }) =>
@@ -212,6 +214,7 @@ const cherryPickCommitsOnRef = ({
             head: { ref, sha, tree },
             octokit,
             owner,
+            sourceOwner,
             repo,
           });
         }),
@@ -230,6 +233,7 @@ const cherryPickCommits = ({
   head,
   octokit,
   owner,
+  sourceOwner,
   repo,
 }) =>
   __awaiter(this, void 0, void 0, function* () {
@@ -250,6 +254,7 @@ const cherryPickCommits = ({
             initialHeadSha,
             octokit,
             owner,
+            sourceOwner,
             ref: temporaryRef,
             repo,
           });

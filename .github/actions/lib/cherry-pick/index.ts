@@ -160,18 +160,20 @@ const cherryPickCommit = async ({
   head: { ref, sha, tree },
   octokit,
   owner,
+  sourceOwner,
   repo,
 }: {
   commit: Sha;
   head: { ref: Ref; sha: Sha; tree: Sha };
   octokit: Octokit;
   owner: RepoOwner;
+  sourceOwner: RepoOwner;
   repo: RepoName;
 }) => {
   const { author, committer, message, parent } = await retrieveCommitDetails({
     commit,
     octokit,
-    owner,
+    owner: sourceOwner,
     repo,
   });
   debug("creating sibling commit");
@@ -224,6 +226,7 @@ const cherryPickCommitsOnRef = async ({
   initialHeadSha,
   octokit,
   owner,
+  sourceOwner,
   ref,
   repo,
 }: {
@@ -231,6 +234,7 @@ const cherryPickCommitsOnRef = async ({
   initialHeadSha: Sha;
   octokit: Octokit;
   owner: RepoOwner;
+  sourceOwner: RepoOwner;
   ref: Ref;
   repo: RepoName;
 }) => {
@@ -253,6 +257,7 @@ const cherryPickCommitsOnRef = async ({
         head: { ref, sha, tree },
         octokit,
         owner,
+        sourceOwner,
         repo,
       });
     },
@@ -273,6 +278,7 @@ const cherryPickCommits = async ({
   head,
   octokit,
   owner,
+  sourceOwner,
   repo,
 }: {
   _intercept?: ({ initialHeadSha }: { initialHeadSha: Sha }) => Promise<void>;
@@ -280,6 +286,7 @@ const cherryPickCommits = async ({
   head: Ref;
   octokit: Octokit;
   owner: RepoOwner;
+  sourceOwner: RepoOwner;
   repo: RepoName;
 }): Promise<Sha> => {
   debug("starting", { commits, head, owner, repo });
@@ -298,6 +305,7 @@ const cherryPickCommits = async ({
         initialHeadSha,
         octokit,
         owner,
+        sourceOwner,
         ref: temporaryRef,
         repo,
       });
