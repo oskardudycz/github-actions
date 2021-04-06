@@ -102,7 +102,7 @@ async function getPullRequest(
     owner,
     repo,
     state: state || "open",
-    head: branchName,
+    //head: branchName,
     base,
   });
 
