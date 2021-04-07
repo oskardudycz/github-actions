@@ -190,6 +190,7 @@ module.exports = {
   getCommitsInPullRequest,
   cherryPick,
   createPullRequest,
+  getPullRequest,
   commentOnPR,
   CreationStatus,
 };
